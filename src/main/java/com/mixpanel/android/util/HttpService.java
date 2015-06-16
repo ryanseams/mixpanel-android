@@ -18,12 +18,37 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.GeneralSecurityException;
 import java.util.List;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
 
 /**
  * An HTTP utility class for internal use in the Mixpanel library.
  */
 public class HttpService implements RemoteService {
+
+    public HttpService() {
+        // EXPERIMENTAL. We've been observing strange crashes in system SSL, trying
+        // to use MD5 on Mixpanel certificates (which isn't appropriate). Isolating the
+        // context here attempts to work around the issue.
+        //
+        // DO NOT MERGE - in general, we *really* want to use the user's settings for SSL.
+        SSLSocketFactory useSSLSocketFactory;
+        try {
+            final SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, null, null);
+            useSSLSocketFactory = sslContext.getSocketFactory();
+        } catch (final GeneralSecurityException e) {
+            Log.wtf(LOGTAG, "System apparently has no TLS Support, using whatever default SSL Context is available");
+            useSSLSocketFactory = null;
+        }
+
+        mSSLSocketFactory = useSSLSocketFactory;
+        // END EXPERIMENTAL
+    }
 
     @Override
     public boolean isOnline(Context context) {
@@ -67,6 +92,11 @@ public class HttpService implements RemoteService {
             try {
                 final URL url = new URL(endpointUrl);
                 connection = (HttpURLConnection) url.openConnection();
+                if (null != mSSLSocketFactory && connection instanceof HttpsURLConnection) {
+                    final HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
+                    httpsConnection.setSSLSocketFactory(mSSLSocketFactory);
+                }
+
                 connection.setConnectTimeout(2000);
                 connection.setReadTimeout(10000);
                 if (null != params) {
@@ -132,6 +162,8 @@ public class HttpService implements RemoteService {
         buffer.flush();
         return buffer.toByteArray();
     }
+
+    private final SSLSocketFactory mSSLSocketFactory;
 
     private static final String LOGTAG = "MixpanelAPI.Message";
 }
