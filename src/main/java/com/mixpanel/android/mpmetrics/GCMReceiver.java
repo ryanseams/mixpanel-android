@@ -132,6 +132,8 @@ public class GCMReceiver extends BroadcastReceiver {
         final String iconName = inboundIntent.getStringExtra("mp_icnm");
         final String uriString = inboundIntent.getStringExtra("mp_cta");
         CharSequence notificationTitle = inboundIntent.getStringExtra("mp_title");
+        final String campaign_id = inboundIntent.getStringExtra("mp_campaign_id");
+        final String message_id = inboundIntent.getStringExtra("mp_message_id");
 
         if (message == null) {
             return null;
@@ -167,12 +169,12 @@ public class GCMReceiver extends BroadcastReceiver {
             notificationTitle = "A message for you";
         }
 
-        final Intent notificationIntent = buildNotificationIntent(context, uriString);
+        final Intent notificationIntent = buildNotificationIntent(context, uriString, campaign_id, message_id);
 
         return new NotificationData(notificationIcon, notificationTitle, message, notificationIntent);
     }
 
-    private Intent buildNotificationIntent(Context context, String uriString) {
+    private Intent buildNotificationIntent(Context context, String uriString, String campaign_id, String message_id) {
         Uri uri = null;
         if (null != uriString) {
             uri = Uri.parse(uriString);
@@ -180,10 +182,14 @@ public class GCMReceiver extends BroadcastReceiver {
 
         final Intent ret;
         if (null == uri) {
-            ret = getDefaultIntent(context);
+            //ret = getDefaultIntent(context);
+            ret = new Intent(Intent.ACTION_MAIN);
         } else {
             ret = new Intent(Intent.ACTION_VIEW, uri);
         }
+
+        ret.putExtra("campaign_id", campaign_id);
+        ret.putExtra("message_id", message_id);
 
         return ret;
     }
